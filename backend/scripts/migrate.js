@@ -5,7 +5,7 @@ const schema = `
 CREATE TABLE IF NOT EXISTS secop_processes (
   id INT AUTO_INCREMENT PRIMARY KEY,
   secop_id VARCHAR(50) UNIQUE NOT NULL,
-  secop_reference VARCHAR(100),
+  secop_reference TEXT,
   title VARCHAR(500),
   description TEXT,
   entity_name VARCHAR(300),

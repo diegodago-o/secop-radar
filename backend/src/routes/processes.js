@@ -17,11 +17,17 @@ router.get('/', async (req, res) => {
       stage,
       since,
       search,
+      active_only = 'true',
     } = req.query;
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const conditions = [];
     const params = [];
+
+    // Por defecto ocultar procesos con fecha de cierre vencida
+    if (active_only === 'true') {
+      conditions.push('(sp.response_deadline IS NULL OR sp.response_deadline >= NOW())');
+    }
 
     if (min_score !== undefined) { conditions.push('pc.relevance_score >= ?'); params.push(parseInt(min_score)); }
     if (max_score !== undefined) { conditions.push('pc.relevance_score <= ?'); params.push(parseInt(max_score)); }
@@ -61,15 +67,15 @@ router.get('/', async (req, res) => {
       LEFT JOIN process_pipeline pp ON pp.process_id = sp.id
       ${where}
       ORDER BY COALESCE(pc.relevance_score, 0) DESC, sp.publication_date DESC
-      LIMIT ? OFFSET ?
+      LIMIT ${parseInt(limit, 10)} OFFSET ${parseInt(offset, 10)}
     `;
-    const rows = await query(dataSql, [...params, parseInt(limit), offset]);
+    const rows = await query(dataSql, params);
 
     res.json({
       data: rows.map((r) => ({
         ...r,
-        sector_match: r.sector_match ? JSON.parse(r.sector_match) : [],
-        risk_flags: r.risk_flags ? JSON.parse(r.risk_flags) : [],
+        sector_match: r.sector_match || [],
+        risk_flags: r.risk_flags || [],
       })),
       pagination: {
         total: parseInt(total),
@@ -103,10 +109,10 @@ router.get('/:id', async (req, res) => {
     const r = rows[0];
     res.json({
       ...r,
-      raw_data: r.raw_data ? JSON.parse(r.raw_data) : null,
-      sector_match: r.sector_match ? JSON.parse(r.sector_match) : [],
-      key_requirements: r.key_requirements ? JSON.parse(r.key_requirements) : [],
-      risk_flags: r.risk_flags ? JSON.parse(r.risk_flags) : [],
+      raw_data: r.raw_data || null,
+      sector_match: r.sector_match || [],
+      key_requirements: r.key_requirements || [],
+      risk_flags: r.risk_flags || [],
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

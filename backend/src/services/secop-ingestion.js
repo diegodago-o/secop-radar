@@ -13,27 +13,28 @@ function buildHeaders() {
   return headers;
 }
 
+// Campos reales del dataset p6dx-8zbt (Socrata trunca los nombres largos)
 function normalizeProcess(raw) {
   return {
     secop_id: raw.id_del_proceso || raw.referencia_del_proceso,
     secop_reference: raw.referencia_del_proceso || null,
     title: raw.nombre_del_procedimiento || null,
-    description: raw.descripcion_del_procedimiento || null,
+    description: raw.descripci_n_del_procedimiento || null,
     entity_name: raw.entidad || null,
     entity_nit: raw.nit_entidad || null,
     department: raw.departamento_entidad || null,
-    city: raw.ciudad_entidad || raw.ciudad_de_la_unidad_de_contratacion || null,
+    city: raw.ciudad_entidad || raw.ciudad_de_la_unidad_de || null,
     estimated_value: raw.precio_base ? parseFloat(raw.precio_base) : null,
     currency: 'COP',
     modality: raw.modalidad_de_contratacion || null,
     phase: raw.fase || null,
-    status: raw.estado_del_proceso || null,
+    status: raw.estado_del_procedimiento || null,
     duration: raw.duracion ? parseInt(raw.duracion, 10) : null,
     duration_unit: raw.unidad_de_duracion || null,
-    publication_date: raw.fecha_de_publicacion_del_proceso || null,
-    last_update_date: raw.fecha_de_ultima_publicacion || null,
-    response_deadline: raw.fecha_de_recepcion_de_respuestas || null,
-    secop_url: raw.url_proceso || null,
+    publication_date: raw.fecha_de_publicacion_del || null,
+    last_update_date: raw.fecha_de_ultima_publicaci || null,
+    response_deadline: raw.fecha_de_recepcion_de || null,
+    secop_url: raw.urlproceso?.url || (typeof raw.urlproceso === 'string' ? raw.urlproceso : null),
     raw_data: JSON.stringify(raw),
   };
 }
@@ -55,7 +56,7 @@ async function upsertProcess(proc) {
       response_deadline = VALUES(response_deadline),
       raw_data = VALUES(raw_data)
   `;
-  const [result] = await query(sql, [
+  const result = await query(sql, [
     proc.secop_id, proc.secop_reference, proc.title, proc.description,
     proc.entity_name, proc.entity_nit, proc.department, proc.city,
     proc.estimated_value, proc.currency, proc.modality, proc.phase, proc.status,
@@ -67,20 +68,39 @@ async function upsertProcess(proc) {
   return { id: result.insertId || null, isNew: result.insertId > 0 };
 }
 
+// Fases activas reales del dataset p6dx-8zbt (verificadas en BD)
+const ACTIVE_PHASES = [
+  'Presentación de oferta',
+  'Presentación de observaciones',
+  'Fase de ofertas',
+  'Manifestación de interés (Menor Cuantía)',
+  'Fase de Selección (Presentación de ofertas)',
+  'Selección de ofertas (borrador)',
+  'Pré-Calificación de competidores',
+  'Fase de Concurso',
+  'Proceso de ofertas',
+];
+
 async function fetchPage(sinceDate, offset) {
-  const whereClause = sinceDate
-    ? `fecha_de_publicacion_del_proceso > '${sinceDate}'`
-    : `fecha_de_publicacion_del_proceso IS NOT NULL`;
+  // Por defecto últimos 30 días — el cron de 30 min mantiene la BD actualizada
+  const since = sinceDate || (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  })();
 
-  const url = `${SODA_BASE}/${DATASET_ID}.json`;
-  const params = {
-    $where: whereClause,
-    $order: 'fecha_de_publicacion_del_proceso DESC',
-    $limit: PAGE_SIZE,
-    $offset: offset,
-  };
+  const phaseFilter = ACTIVE_PHASES.map((f) => `fase='${f}'`).join(' OR ');
+  const where = `fecha_de_publicacion_del > '${since}' AND (${phaseFilter})`;
 
-  const resp = await axios.get(url, { headers: buildHeaders(), params, timeout: 30000 });
+  const qs = [
+    `$where=${encodeURIComponent(where)}`,
+    `$order=${encodeURIComponent('fecha_de_publicacion_del DESC')}`,
+    `$limit=${PAGE_SIZE}`,
+    `$offset=${offset}`,
+  ].join('&');
+
+  const url = `${SODA_BASE}/${DATASET_ID}.json?${qs}`;
+  const resp = await axios.get(url, { headers: buildHeaders(), timeout: 30000 });
   return resp.data;
 }
 

@@ -121,14 +121,28 @@ async function saveClassification(processId, result) {
 }
 
 async function classifyProcess(processId, proc) {
-  const caller = env.anthropic.apiKey ? callClaude : callMock;
-  const result = await caller(proc);
+  let result;
+  if (env.anthropic.apiKey) {
+    try {
+      result = await callClaude(proc);
+    } catch (err) {
+      // Caer al mock si la key es inválida o hay error de auth
+      if (err.status === 401 || err.message?.includes('401') || err.message?.includes('authentication')) {
+        result = await callMock(proc);
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    result = await callMock(proc);
+  }
   await saveClassification(processId, result);
   return result;
 }
 
 // Clasificar procesos no clasificados aún (útil para re-correr)
 async function classifyPending({ limit = 50, verbose = false } = {}) {
+  const safeLimit = parseInt(limit, 10) || 50;
   const pending = await query(
     `SELECT sp.id, sp.secop_id, sp.title, sp.description, sp.entity_name,
             sp.estimated_value, sp.modality, sp.department, sp.duration, sp.duration_unit,
@@ -137,8 +151,8 @@ async function classifyPending({ limit = 50, verbose = false } = {}) {
      LEFT JOIN process_classifications pc ON pc.process_id = sp.id
      WHERE pc.id IS NULL
      ORDER BY sp.publication_date DESC
-     LIMIT ?`,
-    [limit]
+     LIMIT ${safeLimit}`,
+    []
   );
 
   console.log(`[clasificador] ${pending.length} procesos pendientes de clasificar`);
