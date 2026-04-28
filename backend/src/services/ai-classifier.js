@@ -1,6 +1,7 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { query } = require('../config/database');
 const env = require('../config/environment');
+const { callMock } = require('./mock-classifier');
 
 const MODEL = 'claude-sonnet-4-5';
 const MODEL_VERSION = 'claude-sonnet-4-5@2025-05-14';
@@ -120,7 +121,8 @@ async function saveClassification(processId, result) {
 }
 
 async function classifyProcess(processId, proc) {
-  const result = await callClaude(proc);
+  const caller = env.anthropic.apiKey ? callClaude : callMock;
+  const result = await caller(proc);
   await saveClassification(processId, result);
   return result;
 }

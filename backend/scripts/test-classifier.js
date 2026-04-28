@@ -1,7 +1,11 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
-const { callClaude } = require('../src/services/ai-classifier');
 
-// Casos de prueba: deberían tener scores altos (C&M gana este tipo)
+const useMock = process.argv.includes('--mock') || !process.env.SECOP_RADAR_ANTHROPIC_API_KEY;
+const { callClaude } = require('../src/services/ai-classifier');
+const { callMock } = require('../src/services/mock-classifier');
+
+const classify = useMock ? callMock : callClaude;
+
 const TEST_CASES = [
   {
     label: 'Interventoría MinEducación (DEBE ser ~90)',
@@ -50,12 +54,12 @@ const TEST_CASES = [
 ];
 
 async function runTests() {
-  console.log('=== TEST CLASIFICADOR IA — SECOP Radar ===\n');
+  console.log(`=== TEST CLASIFICADOR ${useMock ? '[MOCK]' : '[Claude API]'} — SECOP Radar ===\n`);
 
   for (const tc of TEST_CASES) {
     try {
       process.stdout.write(`► ${tc.label}... `);
-      const result = await callClaude(tc);
+      const result = await classify(tc);
       console.log(`Score: ${result.relevance_score}/100`);
       console.log(`  Tipo: ${result.service_type} | Participación: ${result.recommended_participation}`);
       console.log(`  Sectores: ${(result.sectors || []).join(', ')}`);
