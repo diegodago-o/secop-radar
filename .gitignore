@@ -40,3 +40,8 @@ temp/
 
 # Cobertura de tests
 coverage/
+
+# Datos sensibles (históricos de C&M — mantener solo local)
+data/*.xlsx
+data/*.xls
+data/*.csv
