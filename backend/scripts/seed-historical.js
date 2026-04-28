@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 const path = require('path');
 const { testConnection, getPool } = require('../src/config/database');
 const { importHistorical } = require('../src/services/historical-import');

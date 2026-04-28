@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 const { callClaude } = require('../src/services/ai-classifier');
 
 // Casos de prueba: deberían tener scores altos (C&M gana este tipo)

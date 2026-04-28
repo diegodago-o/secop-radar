@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 const { getPool, testConnection } = require('../src/config/database');
 
 const schema = `
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS secop_processes (
   publication_date DATETIME,
   last_update_date DATETIME,
   response_deadline DATETIME,
-  secop_url VARCHAR(500),
+  secop_url TEXT,
   raw_data JSON,
   ingested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_publication_date (publication_date),
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS process_pipeline (
 
 CREATE TABLE IF NOT EXISTS historical_processes (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  secop_url VARCHAR(500),
+  secop_url TEXT,
   title VARCHAR(500),
   description TEXT,
   entity VARCHAR(300),
